@@ -251,7 +251,7 @@ Set-StrictMode -Version Latest
                 
                 <StackPanel Orientation="Horizontal" Margin="10,10,0,0">
                     <TextBlock x:Name="tbFileCount" Text="Files: 0" Width="100" Foreground="White" FontSize="12" FontWeight="Light" FontFamily="Courier New"/>
-                    <TextBlock x:Name="tbCopyright" Text="© MeCRO-DEV" Margin="440,0,0,0" Foreground="Yellow" FontSize="14" FontWeight="Normal" FontFamily="Segoe Script"/>
+                    <TextBlock x:Name="tbCopyright" Text="&#169;MeCRO 2025" Margin="480,0,0,0" Foreground="Yellow" FontSize="14" FontWeight="Normal" FontFamily="Times New Roman"/>
                 </StackPanel>
                 <ProgressBar x:Name="pbUploadProgress" Width="660" Height="2" Margin="-10,10,0,0" IsIndeterminate="False" Background="#181735" Foreground="Yellow" BorderThickness="0"/>
             </StackPanel>
