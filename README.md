@@ -2,6 +2,9 @@
 
 A PowerShell GUI application for uploading files to JFrog Artifactory repository using REST API.
 
+<img width="698" height="540" alt="image" src="https://github.com/user-attachments/assets/5aec944e-d60a-4388-a62c-df56234afef5" />
+
+
 ## Description
 
 JFrog Artifactory Uploader is a user-friendly Windows desktop application built with PowerShell and WPF that provides an intuitive graphical interface for uploading multiple files to JFrog Artifactory repositories. The application features a modern dark-themed UI and supports batch file uploads with real-time progress tracking.
