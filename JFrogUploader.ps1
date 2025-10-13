@@ -36,7 +36,7 @@ Set-StrictMode -Version Latest
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="JFrog Artifactory Uploader" Height="550" Width="700"
+    Title="JFrog Artifactory Uploader" Height="530" Width="700"
     WindowStyle="None"
     WindowStartupLocation="CenterScreen"
     ResizeMode="NoResize"
@@ -251,9 +251,8 @@ Set-StrictMode -Version Latest
                 
                 <StackPanel Orientation="Horizontal" Margin="10,10,0,0">
                     <TextBlock x:Name="tbFileCount" Text="Files: 0" Width="100" Foreground="White" FontSize="12" FontWeight="Light" FontFamily="Courier New"/>
-                    <TextBlock x:Name="tbCopyright" Text="&#169;MeCRO 2025" Margin="480,0,0,0" Foreground="Yellow" FontSize="14" FontWeight="Normal" FontFamily="Times New Roman"/>
+                    <ProgressBar x:Name="pbUploadProgress" Width="570" Height="5" Margin="0,0,0,0" IsIndeterminate="False" Background="#181735" Foreground="Yellow" BorderThickness="0"/>
                 </StackPanel>
-                <ProgressBar x:Name="pbUploadProgress" Width="660" Height="2" Margin="-10,10,0,0" IsIndeterminate="False" Background="#181735" Foreground="Yellow" BorderThickness="0"/>
             </StackPanel>
         </StackPanel>
     </Grid>
