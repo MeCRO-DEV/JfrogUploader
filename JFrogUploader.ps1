@@ -250,8 +250,8 @@ Set-StrictMode -Version Latest
                 </StackPanel>
                 
                 <StackPanel Orientation="Horizontal" Margin="10,10,0,0">
-                    <TextBlock x:Name="tbFileCount" Text="Files: 0" Width="100" Foreground="White" FontSize="12" FontWeight="Light" FontFamily="Courier New"/>
-                    <ProgressBar x:Name="pbUploadProgress" Width="570" Height="5" Margin="0,0,0,0" IsIndeterminate="False" Background="#181735" Foreground="Yellow" BorderThickness="0"/>
+                    <TextBlock x:Name="tbFileCount" Text="Files: 0" Width="270" Foreground="White" FontSize="12" FontWeight="Light" FontFamily="Courier New"/>
+                    <ProgressBar x:Name="pbUploadProgress" Width="400" Height="5" Margin="0,0,0,0" IsIndeterminate="False" Background="#181735" Foreground="Yellow" BorderThickness="0"/>
                 </StackPanel>
             </StackPanel>
         </StackPanel>
@@ -393,11 +393,49 @@ function Show-InfoMessage {
 
 function Update-FilesList {
     $syncHash.Gui.lbSelectedFiles.Items.Clear()
+    $totalSize = 0
+    
     foreach ($file in $Global:SelectedFiles) {
-        $syncHash.Gui.lbSelectedFiles.Items.Add($file)
+        try {
+            $fileInfo = Get-Item $file -ErrorAction SilentlyContinue
+            if ($fileInfo) {
+                $totalSize += $fileInfo.Length
+                $sizeGB = [math]::Round($fileInfo.Length / 1GB, 2)
+                $sizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
+                
+                if ($sizeGB -gt 1) {
+                    $displayText = "$file [$sizeGB GB]"
+                    if ($sizeGB -gt 2) {
+                        $displayText += " ⚠️ Large file - streaming upload"
+                    }
+                } elseif ($sizeMB -gt 1) {
+                    $displayText = "$file [$sizeMB MB]"
+                } else {
+                    $sizeKB = [math]::Round($fileInfo.Length / 1KB, 1)
+                    $displayText = "$file [$sizeKB KB]"
+                }
+                
+                $syncHash.Gui.lbSelectedFiles.Items.Add($displayText)
+            } else {
+                $syncHash.Gui.lbSelectedFiles.Items.Add("$file [File not found]")
+            }
+        } catch {
+            $syncHash.Gui.lbSelectedFiles.Items.Add("$file [Error reading file]")
+        }
     }
     
-    $syncHash.Gui.tbFileCount.Text = "Files: $($Global:SelectedFiles.Count)"
+    # Display total count and size
+    $totalSizeGB = [math]::Round($totalSize / 1GB, 2)
+    $totalSizeMB = [math]::Round($totalSize / 1MB, 2)
+    
+    if ($totalSizeGB -gt 1) {
+        $syncHash.Gui.tbFileCount.Text = "Files: $($Global:SelectedFiles.Count) | Total: $totalSizeGB GB"
+    } elseif ($totalSizeMB -gt 1) {
+        $syncHash.Gui.tbFileCount.Text = "Files: $($Global:SelectedFiles.Count) | Total: $totalSizeMB MB"
+    } else {
+        $totalSizeKB = [math]::Round($totalSize / 1KB, 1)
+        $syncHash.Gui.tbFileCount.Text = "Files: $($Global:SelectedFiles.Count) | Total: $totalSizeKB KB"
+    }
 }
 
 function Test-JFrogConnection {
@@ -503,31 +541,75 @@ function Start-Upload {
                 $TargetPath += '/'
             }
             
-            $headers = @{
-                "Authorization" = "Bearer $ApiToken"
-            }
+
             
             $totalFiles = $SelectedFiles.Count
             $uploadedFiles = 0
             $failedFiles = @()
+            
+            # Create HttpClient for streaming uploads
+            $httpClient = New-Object System.Net.Http.HttpClient
+            $httpClient.Timeout = [System.TimeSpan]::FromMinutes(30)  # 30-minute timeout for large files
             
             foreach ($filePath in $SelectedFiles) {
                 try {
                     $fileName = [System.IO.Path]::GetFileName($filePath)
                     $uploadUrl = "$ServerUrl/$Repository/$TargetPath$fileName"
                     
-                    Update-ProgressFromBG -Status "Uploading: $fileName"
+                    # Check file size and display info
+                    $fileInfo = Get-Item $filePath
+                    $fileSizeGB = [math]::Round($fileInfo.Length / 1GB, 2)
+                    $fileSizeMB = [math]::Round($fileInfo.Length / 1MB, 2)
                     
-                    # Read file content
-                    $fileBytes = [System.IO.File]::ReadAllBytes($filePath)
+                    if ($fileSizeGB -gt 1) {
+                        Update-ProgressFromBG -Status "Uploading: $fileName ($fileSizeGB GB) - using streaming..."
+                    } else {
+                        Update-ProgressFromBG -Status "Uploading: $fileName ($fileSizeMB MB)..."
+                    }
                     
-                    # Upload file using REST API
-                    $response = Invoke-RestMethod -Uri $uploadUrl -Method PUT -Body $fileBytes -Headers $headers -ContentType "application/octet-stream"
+                    # Create HTTP request message
+                    $request = New-Object System.Net.Http.HttpRequestMessage
+                    $request.Method = [System.Net.Http.HttpMethod]::Put
+                    $request.RequestUri = $uploadUrl
+                    $request.Headers.Add("Authorization", "Bearer $ApiToken")
                     
-                    $uploadedFiles++
+                    # Create file stream for streaming upload
+                    $fileStream = [System.IO.File]::OpenRead($filePath)
+                    $streamContent = New-Object System.Net.Http.StreamContent($fileStream)
+                    $streamContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("application/octet-stream")
+                    $streamContent.Headers.ContentLength = $fileInfo.Length
+                    $request.Content = $streamContent
+                    
+                    # Upload file using streaming
+                    $response = $httpClient.SendAsync($request).Result
+                    
+                    # Clean up stream
+                    $fileStream.Close()
+                    $fileStream.Dispose()
+                    $streamContent.Dispose()
+                    $request.Dispose()
+                    
+                    if ($response.IsSuccessStatusCode) {
+                        $uploadedFiles++
+                        Update-ProgressFromBG -Status "Completed: $fileName"
+                    } else {
+                        $errorContent = $response.Content.ReadAsStringAsync().Result
+                        $failedFiles += "$fileName - HTTP $($response.StatusCode): $errorContent"
+                    }
+                    $response.Dispose()
                     
                 } catch {
                     $failedFiles += "$fileName - $($_.Exception.Message)"
+                    
+                    # Ensure streams are cleaned up in case of error
+                    try {
+                        if ($fileStream) { $fileStream.Dispose() }
+                        if ($streamContent) { $streamContent.Dispose() }
+                        if ($request) { $request.Dispose() }
+                        if ($response) { $response.Dispose() }
+                    } catch {
+                        # Ignore disposal errors
+                    }
                 }
                 
                 # Update progress
@@ -552,6 +634,11 @@ function Start-Upload {
             Update-ProgressFromBG -Status "Upload failed"
             Show-ErrorFromBG "Fatal error during upload:`n`n$($_.Exception.Message)" "Upload Error"
         } finally {
+            # Clean up HttpClient
+            if ($httpClient) {
+                $httpClient.Dispose()
+            }
+            
             # Re-enable upload button, reset upload flags, and stop progress bar
             $syncHash.Gui.btUpload.Dispatcher.Invoke([action]{
                 $syncHash.Gui.btUpload.IsEnabled = $true
