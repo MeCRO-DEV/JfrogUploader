@@ -2,7 +2,8 @@
 
 A PowerShell GUI application for uploading files to JFrog Artifactory repository using REST API.
 
-<img width="698" height="540" alt="image" src="https://github.com/user-attachments/assets/5aec944e-d60a-4388-a62c-df56234afef5" />
+<img width="700" height="524" alt="image" src="https://github.com/user-attachments/assets/1629ba08-36c7-494c-9ce9-55817bfa422d" />
+
 
 
 ## Description
